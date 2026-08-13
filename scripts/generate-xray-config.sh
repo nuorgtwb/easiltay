@@ -27,6 +27,15 @@ if [[ -z "${REALITY_PUBLIC_KEY:-}" ]]; then
   exit 1
 fi
 
+# Railway Variables can carry multiline PEM values. Materialize them only inside the container.
+if [[ -n "${TLS_CERT_PEM:-}" && -n "${TLS_KEY_PEM:-}" ]]; then
+  printf '%s\n' "$TLS_CERT_PEM" > /etc/xray/runtime.crt
+  printf '%s\n' "$TLS_KEY_PEM" > /etc/xray/runtime.key
+  chmod 600 /etc/xray/runtime.key
+  TLS_CERT_FILE=/etc/xray/runtime.crt
+  TLS_KEY_FILE=/etc/xray/runtime.key
+fi
+
 TLS_ENABLED=false
 if [[ -n "${TLS_CERT_FILE:-}" && -n "${TLS_KEY_FILE:-}" && -f "${TLS_CERT_FILE}" && -f "${TLS_KEY_FILE}" ]]; then
   TLS_ENABLED=true
@@ -35,6 +44,7 @@ fi
 export WS_PATH XHTTP_PATH REALITY_TARGET REALITY_SERVER_NAME REALITY_SHORT_ID
 export REALITY_PRIVATE_KEY REALITY_PUBLIC_KEY TLS_ENABLED
 export XRAY_UUID XRAY_WS_PORT XRAY_TLS_PORT XRAY_REALITY_PORT XRAY_LOG_LEVEL
+export TLS_CERT_FILE TLS_KEY_FILE
 
 python3 - <<'PY'
 import json, os
@@ -77,7 +87,10 @@ if os.environ.get('TLS_ENABLED') == 'true':
     'settings':{'clients':[{'id':u}], 'decryption':'none'},
     'streamSettings':{
       'network':'tcp','security':'tls',
-      'tlsSettings':{'certificates':[{'certificateFile':os.environ['TLS_CERT_FILE'],'keyFile':os.environ['TLS_KEY_FILE']}]}
+      'tlsSettings':{
+        'alpn':['h2','http/1.1'],
+        'certificates':[{'certificateFile':os.environ['TLS_CERT_FILE'],'keyFile':os.environ['TLS_KEY_FILE']}]
+      }
     }
   })
 
