@@ -9,7 +9,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     xfce4 xfce4-goodies xfce4-terminal \
     dbus-x11 x11vnc novnc websockify nginx \
-    supervisor curl ca-certificates unzip jq openssl procps \
+    supervisor curl ca-certificates unzip jq openssl procps python3 \
     fonts-dejavu fonts-noto-core \
     && rm -rf /var/lib/apt/lists/*
 
