@@ -20,11 +20,11 @@ Railway 上的 Ubuntu Web Desktop + Xray 实验项目。
 2. **VLESS + TCP + TLS**：需要真实证书，并建议使用 Railway TCP Proxy 暴露内部 TCP 端口。
 3. **VLESS + XHTTP + REALITY**：需要 Railway TCP Proxy 或其它 raw TCP 入口。
 
-注意：当前 Xray 官方传输组合表明确指出 **WebSocket + REALITY 不支持**，所以这里将 WebSocket 方案实现为 WebSocket + TLS，而 XHTTP + REALITY 单独实现。citeturn2search4turn1search8
+注意：当前 Xray 官方传输组合表明确指出 **WebSocket + REALITY 不支持**，所以这里将 WebSocket 方案实现为 WebSocket + TLS，而 XHTTP + REALITY 单独实现。
 
 ## Railway 部署
 
-Railway 的 HTTP 公网入口使用服务的 `$PORT`；Railway 也提供 TCP Proxy，可以把服务内部的 TCP 端口映射到公网。citeturn3search1turn3search0
+Railway 的 HTTP 公网入口使用服务的 `$PORT`；Railway 也提供 TCP Proxy，可以把服务内部的 TCP 端口映射到公网。
 
 1. 将仓库连接到 Railway。
 2. 使用 `Dockerfile` 构建。
@@ -67,7 +67,7 @@ XRAY_LOG_LEVEL=warning
 NODE_OUTPUT_MODE=base64
 ```
 
-Railway 会自动提供 `RAILWAY_PUBLIC_DOMAIN`。如果启用了 TCP Proxy，还会提供 `RAILWAY_TCP_PROXY_DOMAIN`、`RAILWAY_TCP_PROXY_PORT` 和 `RAILWAY_TCP_APPLICATION_PORT`。citeturn3search3
+Railway 会自动提供 `RAILWAY_PUBLIC_DOMAIN`。如果启用了 TCP Proxy，还会提供 `RAILWAY_TCP_PROXY_DOMAIN`、`RAILWAY_TCP_PROXY_PORT` 和 `RAILWAY_TCP_APPLICATION_PORT`。
 
 ### TCP Proxy
 
@@ -77,7 +77,7 @@ Railway 会自动提供 `RAILWAY_PUBLIC_DOMAIN`。如果启用了 TCP Proxy，�
 2. 将 TCP Proxy 的 application/internal port 指向 `10003`，或者把 `XRAY_REALITY_PORT` 设置成 Railway 给出的 application port。
 3. 部署后重新查看 `/status/` 或 Railway Logs。
 
-Railway 官方说明 TCP Proxy 会生成独立的公网域名和端口，并把该 TCP 流量转发到指定内部端口。HTTP 和 TCP 可以同时暴露在同一个 Service 上。citeturn3search0
+Railway 的 TCP Proxy 会生成独立的公网域名和端口，并把 TCP 流量转发到指定内部端口。HTTP 和 TCP 可以同时暴露在同一个 Service 上。
 
 ## 节点日志
 
@@ -94,7 +94,7 @@ Railway 官方说明 TCP Proxy 会生成独立的公网域名和端口，并把�
 
 Base64 **不是加密**。它只能避免节点 URI 在日志中以明文直接出现，不能防止拥有日志访问权限的人还原节点。因此 Railway Logs、`/status/` 和 Base64 节点本身都应当视为敏感信息。
 
-如果需要真正防止泄露，应使用 Railway 的 Sealed Variables/Secrets，并进一步增加状态页认证；不要依赖 Base64。Railway 官方也建议将密钥、密码等敏感变量作为 secrets 管理。citeturn3search9
+如果需要真正防止泄露，应使用 Railway 的 Sealed Variables/Secrets，并进一步增加状态页认证；不要依赖 Base64。
 
 ## 状态页
 
@@ -112,7 +112,7 @@ Base64 **不是加密**。它只能避免节点 URI 在日志中以明文直接�
 
 ## Xray 版本
 
-当前 Dockerfile 使用 Xray Core **v26.7.28**。截至本项目当前开发时间，官方 GitHub release 页面显示 v26.7.28 为最新发布版本，但官方 release 页面将其标记为 pre-release；如果生产环境要求严格稳定版，可以将 `XRAY_VERSION` 固定到最新 stable tag。citeturn0search1turn0search4
+当前 Dockerfile 使用 Xray Core **v26.7.28**。截至当前开发时间，官方 release 页面显示 v26.7.28 为最新发布版本，但该版本被标记为 pre-release；如果生产环境要求严格稳定版，可以将 `XRAY_VERSION` 固定到最新 stable tag。
 
 ## 安全说明
 
@@ -126,4 +126,4 @@ Base64 **不是加密**。它只能避免节点 URI 在日志中以明文直接�
 - REALITY `target` 使用自己确认安全、稳定的目标站点
 - 不要把 REALITY 配置成开放式端口转发器
 
-Xray 官方特别提醒，REALITY 鉴权失败的流量会转发到 `target`，因此错误选择 target 可能导致服务被滥用。citeturn5search0
+Xray 官方特别提醒，REALITY 鉴权失败的流量会转发到 `target`，因此错误选择 target 可能导致服务被滥用。
