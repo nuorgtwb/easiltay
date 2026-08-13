@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>easiltay status</title>
+  <style>
+    body{font-family:system-ui,sans-serif;max-width:960px;margin:40px auto;padding:0 18px;line-height:1.6}
+    code,pre{word-break:break-all;white-space:pre-wrap;background:#f4f4f4;padding:10px;border-radius:8px}
+    .ok{font-weight:700}
+    .warn{padding:12px;border:1px solid #ddd;border-radius:8px}
+  </style>
+</head>
+<body>
+  <h1>easiltay 状态页</h1>
+  <p id="health">正在检查服务状态…</p>
+  <div class="warn">
+    <strong>安全提示：</strong>下面的节点字符串默认只以 Base64 编码展示。Base64 不是加密，任何能看到日志或状态页的人都可以还原内容。请把状态页和 Railway 日志视为敏感信息。
+  </div>
+  <h2>节点信息（Base64）</h2>
+  <p>VLESS + WebSocket + TLS</p>
+  <pre id="ws">加载中…</pre>
+  <p>VLESS + XHTTP + REALITY</p>
+  <pre id="reality">加载中…</pre>
+  <h2>REALITY 参数</h2>
+  <pre id="reality-meta">加载中…</pre>
+  <p><a href="/vnc.html">打开 Ubuntu 桌面</a></p>
+<script>
+async function load(){
+  const health=await fetch('/healthz',{cache:'no-store'});
+  document.getElementById('health').textContent=health.ok?'● 服务正常':'● 服务异常';
+  document.getElementById('health').className=health.ok?'ok':'';
+  const data=await fetch('/status/nodes.json',{cache:'no-store'}).then(r=>r.json());
+  document.getElementById('ws').textContent=data.vless_ws_tls_base64||'不可用';
+  document.getElementById('reality').textContent=data.vless_xhttp_reality_base64||'尚未配置 Railway TCP Proxy';
+  document.getElementById('reality-meta').textContent=JSON.stringify({public_key:data.reality_public_key,server_name:data.reality_server_name,short_id:data.reality_short_id,tcp_proxy:data.tcp_proxy},null,2);
+}
+load().catch(e=>document.getElementById('health').textContent='状态页加载失败：'+e);
+</script>
+</body>
+</html>
