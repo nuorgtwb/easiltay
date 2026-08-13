@@ -2,46 +2,89 @@
 set -euo pipefail
 
 : "${XRAY_UUID:?XRAY_UUID is required}"
-XRAY_PORT="${XRAY_PORT:-443}"
+WS_PORT="${XRAY_WS_PORT:-10001}"
+TLS_PORT="${XRAY_TLS_PORT:-10002}"
+REALITY_PORT="${XRAY_REALITY_PORT:-10003}"
 XRAY_LOG_LEVEL="${XRAY_LOG_LEVEL:-warning}"
+PUBLIC_HOST="${PUBLIC_HOST:-${RAILWAY_PUBLIC_DOMAIN:-}}"
+REALITY_TARGET="${REALITY_TARGET:-www.cloudflare.com:443}"
+REALITY_SERVER_NAME="${REALITY_SERVER_NAME:-www.cloudflare.com}"
+REALITY_SHORT_ID="${REALITY_SHORT_ID:-$(openssl rand -hex 8)}"
+WS_PATH="${WS_PATH:-/vless-ws}"
+XHTTP_PATH="${XHTTP_PATH:-/xray-xhttp}"
 
-cat > /etc/xray/config.json <<EOF
-{
-  "log": {
-    "loglevel": "${XRAY_LOG_LEVEL}"
+mkdir -p /etc/xray /var/lib/easiltay
+
+# Generate REALITY X25519 material once per container start unless supplied.
+if [[ -z "${REALITY_PRIVATE_KEY:-}" ]]; then
+  REALITY_PRIVATE_KEY="$(/opt/xray/xray x25519 | awk -F': ' '/Private key/ {print $2; exit}')"
+fi
+if [[ -z "${REALITY_PRIVATE_KEY:-}" ]]; then
+  echo "[easiltay] ERROR: failed to generate REALITY private key." >&2
+  exit 1
+fi
+REALITY_PUBLIC_KEY="$(/opt/xray/xray x25519 -i "$REALITY_PRIVATE_KEY" | awk -F': ' '/Public key/ {print $2; exit}')"
+
+# TLS mode is opt-in because Railway's public HTTPS endpoint terminates TLS.
+TLS_ENABLED=false
+if [[ -n "${TLS_CERT_FILE:-}" && -n "${TLS_KEY_FILE:-}" && -f "${TLS_CERT_FILE}" && -f "${TLS_KEY_FILE}" ]]; then
+  TLS_ENABLED=true
+fi
+
+python3 - <<'PY'
+import json, os
+
+u=os.environ['XRAY_UUID']
+ws_port=int(os.environ['XRAY_WS_PORT'])
+tls_port=int(os.environ['XRAY_TLS_PORT'])
+reality_port=int(os.environ['XRAY_REALITY_PORT'])
+ws_path=os.environ['WS_PATH']
+xhttp_path=os.environ['XHTTP_PATH']
+reality_target=os.environ['REALITY_TARGET']
+reality_sni=os.environ['REALITY_SERVER_NAME']
+reality_private=os.environ['REALITY_PRIVATE_KEY']
+short_id=os.environ['REALITY_SHORT_ID']
+
+inbounds=[
+  {
+    'tag':'vless-ws', 'listen':'127.0.0.1', 'port':ws_port, 'protocol':'vless',
+    'settings':{'clients':[{'id':u}], 'decryption':'none'},
+    'streamSettings':{'network':'ws','security':'none','wsSettings':{'path':ws_path}}
   },
-  "inbounds": [
-    {
-      "listen": "0.0.0.0",
-      "port": ${XRAY_PORT},
-      "protocol": "vless",
-      "settings": {
-        "clients": [
-          {"id": "${XRAY_UUID}", "flow": ""}
-        ],
-        "decryption": "none"
-      },
-      "streamSettings": {
-        "network": "tcp"
-      },
-      "tag": "vless-tcp"
+  {
+    'tag':'vless-xhttp-reality', 'listen':'0.0.0.0', 'port':reality_port, 'protocol':'vless',
+    'settings':{'clients':[{'id':u,'flow':'xtls-rprx-vision'}], 'decryption':'none'},
+    'streamSettings':{
+      'network':'xhttp','security':'reality',
+      'xhttpSettings':{'path':xhttp_path,'mode':'auto'},
+      'realitySettings':{
+        'show':False,'target':reality_target,
+        'serverNames':[reality_sni], 'privateKey':reality_private,
+        'shortIds':[short_id]
+      }
     }
-  ],
-  "outbounds": [
-    {
-      "protocol": "freedom",
-      "tag": "direct"
-    },
-    {
-      "protocol": "blackhole",
-      "tag": "blocked"
-    }
-  ],
-  "routing": {
-    "domainStrategy": "AsIs",
-    "rules": []
   }
-}
-EOF
+]
 
+if os.environ.get('TLS_ENABLED') == 'true':
+  inbounds.append({
+    'tag':'vless-tls','listen':'0.0.0.0','port':tls_port,'protocol':'vless',
+    'settings':{'clients':[{'id':u}], 'decryption':'none'},
+    'streamSettings':{
+      'network':'tcp','security':'tls',
+      'tlsSettings':{'certificates':[{'certificateFile':os.environ['TLS_CERT_FILE'],'keyFile':os.environ['TLS_KEY_FILE']}]}
+    }
+  })
+
+cfg={
+  'log':{'loglevel':os.environ['XRAY_LOG_LEVEL']},
+  'inbounds':inbounds,
+  'outbounds':[{'protocol':'freedom','tag':'direct'},{'protocol':'blackhole','tag':'blocked'}]
+}
+with open('/etc/xray/config.json','w') as f:
+  json.dump(cfg,f,indent=2)
+PY
+
+export REALITY_PUBLIC_KEY
+export TLS_ENABLED
 /opt/xray/xray -test -config /etc/xray/config.json
