@@ -9,7 +9,7 @@ if [[ -z "${XRAY_UUID:-}" ]]; then
 fi
 
 if ! [[ "$XRAY_UUID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$ ]]; then
-  echo "[easiltay] ERROR: XRAY_UUID is not a valid UUIDv4/v5-style value." >&2
+  echo "[easiltay] ERROR: XRAY_UUID is not a valid UUID." >&2
   exit 1
 fi
 
@@ -24,5 +24,8 @@ export NODE_OUTPUT_MODE="${NODE_OUTPUT_MODE:-base64}"
 /usr/local/bin/generate-xray-config
 /usr/local/bin/render-status
 
-# noVNC's own HTML is kept intact; nginx exposes it at /vnc.html.
+# nginx is the single Railway HTTP entrypoint. WS traffic is multiplexed by path.
+sed "s/listen 8080;/listen ${WEB_PORT};/" /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf
+nginx -t
+
 exec /usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf
