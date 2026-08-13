@@ -6,7 +6,6 @@ WS_PORT="${XRAY_WS_PORT:-10001}"
 TLS_PORT="${XRAY_TLS_PORT:-10002}"
 REALITY_PORT="${XRAY_REALITY_PORT:-10003}"
 XRAY_LOG_LEVEL="${XRAY_LOG_LEVEL:-warning}"
-PUBLIC_HOST="${PUBLIC_HOST:-${RAILWAY_PUBLIC_DOMAIN:-}}"
 REALITY_TARGET="${REALITY_TARGET:-www.cloudflare.com:443}"
 REALITY_SERVER_NAME="${REALITY_SERVER_NAME:-www.cloudflare.com}"
 REALITY_SHORT_ID="${REALITY_SHORT_ID:-$(openssl rand -hex 8)}"
@@ -15,7 +14,6 @@ XHTTP_PATH="${XHTTP_PATH:-/xray-xhttp}"
 
 mkdir -p /etc/xray /var/lib/easiltay
 
-# Generate REALITY X25519 material once per container start unless supplied.
 if [[ -z "${REALITY_PRIVATE_KEY:-}" ]]; then
   REALITY_PRIVATE_KEY="$(/opt/xray/xray x25519 | awk -F': ' '/Private key/ {print $2; exit}')"
 fi
@@ -24,12 +22,19 @@ if [[ -z "${REALITY_PRIVATE_KEY:-}" ]]; then
   exit 1
 fi
 REALITY_PUBLIC_KEY="$(/opt/xray/xray x25519 -i "$REALITY_PRIVATE_KEY" | awk -F': ' '/Public key/ {print $2; exit}')"
+if [[ -z "${REALITY_PUBLIC_KEY:-}" ]]; then
+  echo "[easiltay] ERROR: failed to derive REALITY public key." >&2
+  exit 1
+fi
 
-# TLS mode is opt-in because Railway's public HTTPS endpoint terminates TLS.
 TLS_ENABLED=false
 if [[ -n "${TLS_CERT_FILE:-}" && -n "${TLS_KEY_FILE:-}" && -f "${TLS_CERT_FILE}" && -f "${TLS_KEY_FILE}" ]]; then
   TLS_ENABLED=true
 fi
+
+export WS_PATH XHTTP_PATH REALITY_TARGET REALITY_SERVER_NAME REALITY_SHORT_ID
+export REALITY_PRIVATE_KEY REALITY_PUBLIC_KEY TLS_ENABLED
+export XRAY_UUID XRAY_WS_PORT XRAY_TLS_PORT XRAY_REALITY_PORT XRAY_LOG_LEVEL
 
 python3 - <<'PY'
 import json, os
@@ -85,6 +90,4 @@ with open('/etc/xray/config.json','w') as f:
   json.dump(cfg,f,indent=2)
 PY
 
-export REALITY_PUBLIC_KEY
-export TLS_ENABLED
 /opt/xray/xray -test -config /etc/xray/config.json
