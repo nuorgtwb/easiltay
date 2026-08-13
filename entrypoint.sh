@@ -1,19 +1,28 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-mkdir -p /run/dbus /var/run/supervisor /var/log/supervisor /etc/xray
+mkdir -p /run/dbus /var/run/supervisor /var/log/supervisor /etc/xray /var/lib/easiltay
 
 if [[ -z "${XRAY_UUID:-}" ]]; then
-  XRAY_UUID="$(cat /proc/sys/kernel/random/uuid)"
-  echo "Generated XRAY_UUID=${XRAY_UUID}"
+  XRAY_UUID="$(/opt/xray/xray uuid)"
+  echo "[easiltay] XRAY_UUID was not supplied; generated a new UUID for this deployment."
 fi
-export XRAY_UUID
 
-if [[ -z "${XRAY_PORT:-}" ]]; then
-  XRAY_PORT=443
+if ! [[ "$XRAY_UUID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$ ]]; then
+  echo "[easiltay] ERROR: XRAY_UUID is not a valid UUIDv4/v5-style value." >&2
+  exit 1
 fi
-export XRAY_PORT
+
+export XRAY_UUID
+export WEB_PORT="${PORT:-8080}"
+export XRAY_WS_PORT="${XRAY_WS_PORT:-10001}"
+export XRAY_TLS_PORT="${XRAY_TLS_PORT:-10002}"
+export XRAY_REALITY_PORT="${XRAY_REALITY_PORT:-10003}"
+export XRAY_LOG_LEVEL="${XRAY_LOG_LEVEL:-warning}"
+export NODE_OUTPUT_MODE="${NODE_OUTPUT_MODE:-base64}"
 
 /usr/local/bin/generate-xray-config
+/usr/local/bin/render-status
 
+# noVNC's own HTML is kept intact; nginx exposes it at /vnc.html.
 exec /usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf
