@@ -24,7 +24,7 @@ COPY scripts/generate-xray-config.sh /usr/local/bin/generate-xray-config
 COPY scripts/render-status.sh /usr/local/bin/render-status
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-COPY nginx.conf /etc/nginx/nginx.conf
+COPY nginx.conf /etc/nginx/nginx.conf.template
 COPY status/index.html /var/www/status/index.html
 
 RUN chmod +x /usr/local/bin/generate-xray-config /usr/local/bin/render-status /usr/local/bin/entrypoint.sh \
