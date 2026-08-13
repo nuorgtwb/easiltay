@@ -1,0 +1,27 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t easiltay:ci .
+      - name: Smoke test
+        run: |
+          docker run -d --name easiltay-ci -e PORT=8080 easiltay:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8080/healthz; then exit 0; fi
+            sleep 2
+          done
+          docker logs easiltay-ci
+          exit 1
+      - name: Dump logs on failure
+        if: failure()
+        run: docker logs easiltay-ci || true
