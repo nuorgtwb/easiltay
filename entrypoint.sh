@@ -17,14 +17,13 @@ export XRAY_UUID
 export WEB_PORT="${PORT:-8080}"
 export XRAY_WS_PORT="${XRAY_WS_PORT:-10001}"
 export XRAY_TLS_PORT="${XRAY_TLS_PORT:-10002}"
-export XRAY_REALITY_PORT="${XRAY_REALITY_PORT:-10003}"
+export XRAY_REALITY_PORT="${XRAY_REALITY_PORT:-${RAILWAY_TCP_APPLICATION_PORT:-10003}}"
 export XRAY_LOG_LEVEL="${XRAY_LOG_LEVEL:-warning}"
 export NODE_OUTPUT_MODE="${NODE_OUTPUT_MODE:-base64}"
 
 /usr/local/bin/generate-xray-config
 /usr/local/bin/render-status
 
-# nginx is the single Railway HTTP entrypoint. WS traffic is multiplexed by path.
 sed "s/listen 8080;/listen ${WEB_PORT};/" /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf
 nginx -t
 
